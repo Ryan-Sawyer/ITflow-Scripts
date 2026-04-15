@@ -175,8 +175,8 @@ function Get-ITflowAssetLookup {
     }
 
     # Debug: log the top-level keys so we can see the actual response shape
-    $keys = ($result | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name) -join ', '
-    Write-Log "  ITflow response keys: $keys"
+    #$keys = ($result | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name) -join ', '
+    #Write-Log "  ITflow response keys: $keys"
 
     # ITflow wraps records in a 'data' key, but guard against other shapes
     $assets = $null
@@ -215,8 +215,10 @@ function New-ITflowAsset {
 function Update-ITflowAsset {
     param([int]$AssetId, [string]$Hostname, [string]$Serial, [string]$OS, [string]$Make, [string]$Model)
 
-    return Invoke-ITflowApi -Method PUT -Endpoint "assets/update.php?asset_id=$AssetId" -Body @{
-        asset_name         = $Hostname
+    return Invoke-ITflowApi -Method POST -Endpoint "assets/update.php?asset_id=$AssetId" -Body @{
+        asset_id	   = $AssetId
+	client_id	   = $ITflowClientId
+	asset_name         = $Hostname
         asset_serial       = $Serial
         asset_os           = $OS
         asset_make         = $Make
@@ -248,20 +250,15 @@ function Start-DeviceSync {
     	      $ap = $device.AdditionalProperties
 	    }
 
-	    Write-Log "DEBUG RAW DEVICE: $($device | ConvertTo-Json -Depth 3 -Compress)"
-	    Write-Log "DEBUG AdditionalProperties: $($device.AdditionalProperties | ConvertTo-Json -Depth 3 -Compress)"
+	    #Write-Log "DEBUG RAW DEVICE: $($device | ConvertTo-Json -Depth 3 -Compress)"
+	    #Write-Log "DEBUG AdditionalProperties: $($device.AdditionalProperties | ConvertTo-Json -Depth 3 -Compress)"
 
 	    $serial = $device.SerialNumber
 	        #-SerialNumber ($ap['serialNumber'] ?? $ap['SerialNumber']) `
 	        #-PhysicalIds  $device.PhysicalIds
 
-	    $make  = if ($ap['manufacturer'] ?? $ap['Manufacturer']) { 
-	        [string]($ap['manufacturer'] ?? $ap['Manufacturer']) 
-	    } else { '' }
-
-	    $model = if ($ap['model'] ?? $ap['Model']) { 
-	        [string]($ap['model'] ?? $ap['Model']) 
-	    } else { '' }
+	    $make  = if ($device.Manufacturer) { [string]$device.Manufacturer } else { '' }
+	    $model = if ($device.Model)        { [string]$device.Model }        else { '' }
 
 	    $os = ''
 
