@@ -112,6 +112,24 @@ function Get-AllGraphDevices {
     return $devices
 }
 
+function Get-DeviceType {
+    param(
+        [string]$Model,
+        [string]$DeviceName
+    )
+
+    $m = ($Model + ' ' + $DeviceName).ToLower()
+
+    if ($m -match 'laptop|notebook|book|thinkpad|latitude|elitebook|probook') {
+        return 'Laptop'
+    }
+
+    if ($m -match 'desktop|thinkcentre|optiplex|prodesk|elitedesk') {
+        return 'Desktop'
+    }
+
+    return 'Desktop'  # fallback
+}
 # ─────────────────────────────────────────────────────────────────────────────
 # REGION: Resolve serial number
 # Priority: top-level serialNumber → [SERIAL_NUMBER] physicalId tag → [OrderID] tag
@@ -166,7 +184,7 @@ function Get-ITflowAssetLookup {
     Write-Log "Fetching existing ITflow assets (client $ITflowClientId)..."
 
     $result = Invoke-ITflowApi -Method GET -Endpoint "assets/read.php?client_id=$ITflowClientId&limit=1000"
-    Write-Host ($result | ConvertTo-Json -Depth 3)
+    #Write-Host ($result | ConvertTo-Json -Depth 3)
     $lookup = @{}
 
     if ($null -eq $result) {
@@ -175,7 +193,7 @@ function Get-ITflowAssetLookup {
     }
 
     # Debug: log the top-level keys so we can see the actual response shape
-    #$keys = ($result | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name) -join ', '
+    $keys = ($result | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name) -join ', '
     #Write-Log "  ITflow response keys: $keys"
 
     # ITflow wraps records in a 'data' key, but guard against other shapes
@@ -204,7 +222,7 @@ function New-ITflowAsset {
     return Invoke-ITflowApi -Method POST -Endpoint 'assets/create.php' -Body @{
         asset_name         = $Hostname
         asset_serial       = $Serial
-        asset_type         = 'Workstation'   # adjust to match your ITflow asset types
+        asset_type         = $deviceType
         asset_os           = $OS
         asset_make         = $Make
         asset_model        = $Model
@@ -223,6 +241,7 @@ function Update-ITflowAsset {
         asset_os           = $OS
         asset_make         = $Make
         asset_model        = $Model
+	asset_type         = $deviceType
     }
 }
 
@@ -270,7 +289,9 @@ function Start-DeviceSync {
 	        $os += " $($device.OsVersion)"
 	    }
 
-$os = $os.Trim()
+	    $os = $os.Trim()
+
+	    $deviceType = Get-DeviceType -Model $model -DeviceName $hostname
 
 	    Write-Output $ap['serialNumber']
             if (-not $hostname) {
